@@ -102,12 +102,10 @@ fn increment_pc(self: *Self) void {
 }
 
 pub fn cycle(self: *Self) !void {
-    if (self.program_counter > 0xFFF) {
+    if (self.program_counter > 0xFFF)
         @panic("OPcode out of range! Your program has an error!");
-    }
 
     self.current_opcode = @intCast(u16, self.memory[self.program_counter]) << 8 | self.memory[self.program_counter + 1];
-    std.debug.print("CYCLE {x}\n", .{self.current_opcode});
 
     if (self.current_opcode == 0x00E0) { // CLS
         for (self.graphics) |*g| {

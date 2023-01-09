@@ -32,3 +32,7 @@ CHIP-8 Emulator written in Zig using SDL
 🟢 - Stars
 🟢 - Trip8
 🟢 - Zero Demo
+
+## Test Roms
+🟢 - [Test Opcodes](https://github.com/corax89/chip8-test-rom)
+🟢 - [C8_Test Suite](https://github.com/Skosulor/c8int/tree/master/test)
