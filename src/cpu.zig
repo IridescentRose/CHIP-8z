@@ -1,4 +1,6 @@
 const std = @import("std");
+const cstd = @cImport(@cInclude("stdlib.h"));
+const time = @cImport(@cInclude("time.h"));
 
 /// Current Operation Code
 current_opcode: u16,
@@ -53,10 +55,8 @@ const chip8_fontset = [_]u8{
 
 const Self = @This();
 
-var rand_impl: std.rand.DefaultPrng = undefined;
-
 pub fn init(self: *Self) !void {
-    rand_impl = std.rand.DefaultPrng.init(self.sp);
+    cstd.srand(@intCast(u32, time.time(0)));
 
     self.program_counter = 0x200;
     self.current_opcode = 0x00;
@@ -215,11 +215,12 @@ pub fn cycle(self: *Self) !void {
                         self.registers[x] >>= 1;
                     },
                     7 => {
+                        @setRuntimeSafety(false);
                         self.registers[0xF] = if (self.registers[y] > self.registers[x]) 1 else 0;
                         self.registers[x] = self.registers[y] - self.registers[x];
                     },
                     0xE => {
-                        self.registers[0xF] = self.registers[x] & 0b10000000;
+                        self.registers[0xF] = if (self.registers[x] & 0b10000000 != 0) 1 else 0;
                         self.registers[x] <<= 1;
                     },
 
@@ -254,7 +255,8 @@ pub fn cycle(self: *Self) !void {
                 var x = (self.current_opcode & 0x0F00) >> 8;
                 var kk = self.current_opcode & 0x00FF;
 
-                self.registers[x] = @truncate(u8, rand_impl.random().int(u16) & kk);
+                self.registers[x] = @truncate(u8, @bitCast(u32, cstd.rand()) & kk);
+                self.increment_pc();
             }, // Generate random number into X and AND with kk
 
             0xD => {
@@ -332,13 +334,13 @@ pub fn cycle(self: *Self) !void {
                     while (i <= x) : (i += 1) {
                         self.memory[self.index + i] = self.registers[i];
                     }
-                    self.index += x + 1;
+                    //self.index += x + 1;
                 } else if (m == 0x65) {
                     var i: usize = 0;
                     while (i <= x) : (i += 1) {
                         self.registers[i] = self.memory[self.index + i];
                     }
-                    self.index += x + 1;
+                    //self.index += x + 1;
                 }
 
                 self.increment_pc();

@@ -20,15 +20,15 @@ CHIP-8 Emulator written in Zig using SDL
 🟡 - Keypad Test
 🟡 - Life 
 🟢 - Minimal Game
-🔴 - Random Number Test
+🟡 - Random Number Test
 🟢 - SQRT Test 
 
 ## Test Demos List
-🔴 - Maze Alt
-🔴 - Maze
-🟡 - Particle Demo
+🟢 - Maze Alt
+🟢 - Maze
+🟢 - Particle Demo
 🟢 - Sierpinski
 🟢 - Sirpinski
-🔴 - Stars
+🟢 - Stars
 🟢 - Trip8
 🟢 - Zero Demo
