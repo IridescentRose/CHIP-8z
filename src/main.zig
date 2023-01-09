@@ -12,7 +12,7 @@ var window_surface: ?*sdl.SDL_Surface = null;
 var renderer : ?*sdl.SDL_Renderer = null;
 var texture : ?*sdl.SDL_Texture = null;
 
-var cpu: CPU = undefined;
+var cpu: *CPU = undefined;
 
 pub fn create_window() void {
     window = sdl.SDL_CreateWindow("CHIP-8z", sdl.SDL_WINDOWPOS_CENTERED, sdl.SDL_WINDOWPOS_CENTERED, 1024, 512, 0);
@@ -100,10 +100,11 @@ pub fn main() !void {
     init();
     defer deinit();
 
+    cpu = try allocator.create(CPU);
     try cpu.init();
 
     // Load a ROM
-    try loadROM(filename, &cpu);
+    try loadROM(filename, cpu);
 
     var keep_open = true;
     while (keep_open) {
@@ -118,7 +119,7 @@ pub fn main() !void {
         }
         _ = sdl.SDL_RenderClear(renderer);
 
-        buildTexture(&cpu);
+        buildTexture(cpu);
 
         var dest = sdl.SDL_Rect {
             .x = 0,

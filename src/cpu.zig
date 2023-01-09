@@ -32,7 +32,7 @@ sp: u16,
 /// Chip 8 has a HEX keypad. This stores the key
 keys: [16]u8,
 
-chip8_fontset: [80]u8 = [_]u8{
+const chip8_fontset = [_]u8{
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -49,7 +49,7 @@ chip8_fontset: [80]u8 = [_]u8{
     0xE0, 0x90, 0x90, 0x90, 0xE0, // D
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
-},
+};
 
 const Self = @This();
 
@@ -89,8 +89,8 @@ pub fn init(self: *Self) !void {
     }
 
     // Set fonts
-    for (self.chip8_fontset) |c, idx| {
-        self.memory[0x050 + idx] = c;
+    for (chip8_fontset) |c, idx| {
+        self.memory[idx] = c;
     }
 
     self.delay_timer = 0;
@@ -104,6 +104,7 @@ pub fn cycle(self: *Self) !void {
 
     self.current_opcode = @intCast(u16, self.memory[self.program_counter]) << 8 | self.memory[self.program_counter + 1];
     self.program_counter += 2;
+    std.debug.print("CYCLE {x}\n", .{self.current_opcode});
 
     if (self.current_opcode == 0x00E0) { // CLS
         std.debug.print("CLEAR SCREEN!\n", .{});
@@ -113,18 +114,6 @@ pub fn cycle(self: *Self) !void {
     } else if (self.current_opcode == 0x00EE) { // RET
         self.sp -= 1;
         self.program_counter = self.stack[self.sp];
-    } else if (self.current_opcode == 0x0E9E) { // SKP Vx
-        var x = (self.current_opcode & 0x0F00) >> 8;
-        var v = self.registers[x];
-
-        if (v != 0)
-            self.program_counter += 2;
-    } else if (self.current_opcode == 0x0EA1) { // SKNP Vx
-        var x = (self.current_opcode & 0x0F00) >> 8;
-        var v = self.registers[x];
-
-        if (v == 0)
-            self.program_counter += 2;
     } else {
         var first = self.current_opcode >> 12;
 
@@ -170,6 +159,7 @@ pub fn cycle(self: *Self) !void {
             }, // Set Vx = kk
 
             0x7 => {
+                @setRuntimeSafety(false);
                 var x = (self.current_opcode & 0x0F00) >> 8;
                 self.registers[x] += @truncate(u8, self.current_opcode & 0x00FF);
             }, // Set Vx = Vx + kk
@@ -200,6 +190,7 @@ pub fn cycle(self: *Self) !void {
                         self.registers[x] = @truncate(u8, sum & 0x00FF);
                     },
                     5 => {
+                        @setRuntimeSafety(false);
                         self.registers[0xF] = if (self.registers[x] > self.registers[y]) 1 else 0;
                         self.registers[x] -= self.registers[y];
                     },
@@ -243,7 +234,7 @@ pub fn cycle(self: *Self) !void {
                 var x = (self.current_opcode & 0x0F00) >> 8;
                 var kk = self.current_opcode & 0x00FF;
 
-                self.registers[x] = rand_impl.random().int(u8) & self.registers[kk];
+                self.registers[x] = rand_impl.random().int(u8) & @truncate(u8, kk);
             }, // Generate random number into X and AND with kk
 
             0xD => {
@@ -275,6 +266,21 @@ pub fn cycle(self: *Self) !void {
                     }
                 }
             }, // Draw
+
+            0xE => {
+                var x = self.current_opcode & 0x0F00 >> 8;
+                var m = self.current_opcode & 0x00FF;
+
+                if(m == 0x9E) {
+                    if(self.keys[self.registers[x]] == 1){
+                        self.program_counter += 2;
+                    }
+                } else if(m == 0xA1) {
+                    if(self.keys[self.registers[x]] != 1){
+                        self.program_counter += 2;
+                    }
+                }
+            }, // Misc
 
             0xF => {
                 var x = self.current_opcode & 0x0F00 >> 8;
@@ -316,7 +322,7 @@ pub fn cycle(self: *Self) !void {
         }
     }
 
-    if (self.delay_timer > 0)
+    if (self.delay_timer > 0) 
         self.delay_timer -= 1;
 
     if (self.sound_timer > 0) {
