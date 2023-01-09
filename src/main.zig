@@ -8,7 +8,6 @@ pub fn println(msg: []const u8) void {
 }
 
 var window: ?*sdl.SDL_Window = null;
-var window_surface: ?*sdl.SDL_Surface = null;
 var renderer : ?*sdl.SDL_Renderer = null;
 var texture : ?*sdl.SDL_Texture = null;
 
@@ -19,28 +18,32 @@ pub fn create_window() void {
     if (window == null) {
         @panic("SDL Window Creation Failed!");
     }
-
-    window_surface = sdl.SDL_GetWindowSurface(window);
-    if (window_surface == null) {
-        @panic("SDL Window Surface Creation Failed!");
-    }
-
-    _ = sdl.SDL_UpdateWindowSurface(window);
 }
 
 pub fn init() void {
     println("CHIP-8z Started!");
     println("Initializing SDL!");
 
-    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO | sdl.SDL_INIT_AUDIO) < 0) {
+    if (sdl.SDL_Init(sdl.SDL_INIT_EVERYTHING) < 0) {
         @panic("SDL Initialization Failed!");
     }
 
     create_window();
 
     // Okay let's setup some basic rendering
-    renderer = sdl.SDL_CreateRenderer(window, -1, sdl.SDL_RENDERER_ACCELERATED | sdl.SDL_RENDERER_PRESENTVSYNC);
+    renderer = sdl.SDL_CreateRenderer(window, -1, 0);
+
+    if(renderer == null) {
+        var err = sdl.SDL_GetError();
+        std.debug.print("{s}\n", .{err});
+
+        @panic("SDL Renderer Initialization Failed!");
+    }
+
     texture = sdl.SDL_CreateTexture(renderer, sdl.SDL_PIXELFORMAT_RGBA8888, sdl.SDL_TEXTUREACCESS_STREAMING, 64, 32);
+    if(texture == null) {
+        @panic("SDL Texture Creation Failed!");
+    }
 }
 
 pub fn deinit() void {
@@ -85,6 +88,7 @@ pub fn buildTexture(system: *CPU) void {
 }
 
 pub fn main() !void {
+    const slow_factor = 1;
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
@@ -129,5 +133,7 @@ pub fn main() !void {
         };
         _ = sdl.SDL_RenderCopy(renderer, texture, null, &dest);
         _ = sdl.SDL_RenderPresent(renderer);
+
+        std.time.sleep(16 * 1000 * 1000 * slow_factor);
     }
 }
