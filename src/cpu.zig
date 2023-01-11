@@ -27,7 +27,7 @@ delay_timer: u8,
 sound_timer: u8,
 
 /// Stack and Stack Pointer
-stack: [16]u16,
+stack: [32]u16,
 sp: u16,
 
 /// Keys
@@ -290,7 +290,7 @@ pub fn cycle(self: *Self) !void {
             }, // Draw
 
             0xE => {
-                var x = self.current_opcode & 0x0F00 >> 8;
+                var x = (self.current_opcode & 0x0F00) >> 8;
                 var m = self.current_opcode & 0x00FF;
 
                 if(m == 0x9E) {
@@ -312,8 +312,18 @@ pub fn cycle(self: *Self) !void {
                 if (m == 0x07) {
                     self.registers[x] = self.delay_timer;
                 } else if (m == 0x0A) {
-                    //TODO: WAIT FOR KEY PRESS RETURN VALUE INTO VX
-                    std.debug.print("WAIT FOR KEY\n", .{});
+                    var key_pressed = false;
+
+                    var i : usize = 0;
+                    while(i < 16) : (i += 1) {
+                        if(self.keys[i] != 0) {
+                            self.registers[x] = @truncate(u8, i);
+                            key_pressed = true;
+                        }
+                    }
+                    
+                    if(!key_pressed)
+                        return;
                 } else if (m == 0x15) {
                     self.delay_timer = self.registers[x];
                 } else if (m == 0x18) {
@@ -332,13 +342,11 @@ pub fn cycle(self: *Self) !void {
                     while (i <= x) : (i += 1) {
                         self.memory[self.index + i] = self.registers[i];
                     }
-                    //self.index += x + 1;
                 } else if (m == 0x65) {
                     var i: usize = 0;
                     while (i <= x) : (i += 1) {
                         self.registers[i] = self.memory[self.index + i];
                     }
-                    //self.index += x + 1;
                 }
 
                 self.increment_pc();

@@ -20,6 +20,25 @@ pub fn create_window() void {
     }
 }
 
+const keymap: [16]c_int = [_]c_int{
+    sdl.SDL_SCANCODE_X,
+    sdl.SDL_SCANCODE_1,
+    sdl.SDL_SCANCODE_2,
+    sdl.SDL_SCANCODE_3,
+    sdl.SDL_SCANCODE_Q,
+    sdl.SDL_SCANCODE_W,
+    sdl.SDL_SCANCODE_E,
+    sdl.SDL_SCANCODE_A,
+    sdl.SDL_SCANCODE_S,
+    sdl.SDL_SCANCODE_D,
+    sdl.SDL_SCANCODE_Z,
+    sdl.SDL_SCANCODE_C,
+    sdl.SDL_SCANCODE_4,
+    sdl.SDL_SCANCODE_R,
+    sdl.SDL_SCANCODE_F,
+    sdl.SDL_SCANCODE_V,
+};
+
 pub fn init() void {
     println("CHIP-8z Started!");
     println("Initializing SDL!");
@@ -118,6 +137,26 @@ pub fn main() !void {
         while (sdl.SDL_PollEvent(&e) > 0) {
             switch (e.type) {
                 sdl.SDL_QUIT => keep_open = false,
+                sdl.SDL_KEYDOWN => {
+                    if(e.key.keysym.scancode == sdl.SDL_SCANCODE_ESCAPE) {
+                        keep_open = false;
+                    }
+
+                    var i : usize = 0;
+                    while(i < 16) : (i += 1) {
+                        if(e.key.keysym.scancode == keymap[i]) {
+                            cpu.keys[i] = 1;
+                        }
+                    } 
+                },
+                sdl.SDL_KEYUP => {
+                    var i : usize = 0;
+                    while(i < 16) : (i += 1) {
+                        if(e.key.keysym.scancode == keymap[i]) {
+                            cpu.keys[i] = 0;
+                        }
+                    }
+                },
                 else => {},
             }
         }
@@ -134,6 +173,6 @@ pub fn main() !void {
         _ = sdl.SDL_RenderCopy(renderer, texture, null, &dest);
         _ = sdl.SDL_RenderPresent(renderer);
 
-        std.time.sleep(16 * 1000 * 1000 * slow_factor);
+        std.time.sleep(12 * 1000 * 1000 * slow_factor);
     }
 }
