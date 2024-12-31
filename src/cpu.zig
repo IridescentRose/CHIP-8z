@@ -56,7 +56,7 @@ const chip8_fontset = [_]u8{
 const Self = @This();
 
 pub fn init(self: *Self) !void {
-    cstd.srand(@intCast(u32, time.time(0)));
+    cstd.srand(@intCast(time.time(0)));
 
     self.program_counter = 0x200;
     self.current_opcode = 0x00;
@@ -64,32 +64,32 @@ pub fn init(self: *Self) !void {
     self.sp = 0x00;
 
     // Clear display
-    for (self.graphics) |*g| {
+    for (&self.graphics) |*g| {
         g.* = 0x00;
     }
 
     // Clear stack
-    for (self.stack) |*s| {
+    for (&self.stack) |*s| {
         s.* = 0x00;
     }
 
     // Clear registers
-    for (self.registers) |*r| {
+    for (&self.registers) |*r| {
         r.* = 0x00;
     }
 
     // Clear memory
-    for (self.memory) |*v| {
+    for (&self.memory) |*v| {
         v.* = 0x00;
     }
 
     // Clear key
-    for (self.keys) |*k| {
+    for (&self.keys) |*k| {
         k.* = 0x00;
     }
 
     // Set fonts
-    for (chip8_fontset) |c, idx| {
+    for (chip8_fontset, 0..) |c, idx| {
         self.memory[idx] = c;
     }
 
@@ -101,14 +101,22 @@ fn increment_pc(self: *Self) void {
     self.program_counter += 2;
 }
 
+pub fn random_byte(self: *Self) u8 {
+    _ = self;
+    const rand_gen = std.Random.DefaultPrng;
+    var rand = rand_gen.init(33);
+    return @mod(rand.random().int(u8), 255);
+}
+
 pub fn cycle(self: *Self) !void {
     if (self.program_counter > 0xFFF)
         @panic("OPcode out of range! Your program has an error!");
 
-    self.current_opcode = @intCast(u16, self.memory[self.program_counter]) << 8 | self.memory[self.program_counter + 1];
+    // self.current_opcode = @intCast(u16, self.memory[self.program_counter]) << 8 | self.memory[self.program_counter + 1];
+    self.current_opcode = @as(u16, @intCast(self.memory[self.program_counter])) << 8 | self.memory[self.program_counter + 1];
 
     if (self.current_opcode == 0x00E0) { // CLS
-        for (self.graphics) |*g| {
+        for (&self.graphics) |*g| {
             g.* = 0;
         }
         self.increment_pc();
@@ -117,7 +125,7 @@ pub fn cycle(self: *Self) !void {
         self.program_counter = self.stack[self.sp];
         self.increment_pc();
     } else {
-        var first = self.current_opcode >> 12;
+        const first = self.current_opcode >> 12;
 
         switch (first) {
             0x0 => {
@@ -136,7 +144,7 @@ pub fn cycle(self: *Self) !void {
             }, // Call NNN, stack gets pushed
 
             0x3 => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
+                const x = (self.current_opcode & 0x0F00) >> 8;
 
                 if (self.registers[x] == self.current_opcode & 0x00FF) {
                     self.increment_pc();
@@ -146,7 +154,7 @@ pub fn cycle(self: *Self) !void {
             }, // Skips next instruction if Vx == kk
 
             0x4 => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
+                const x = (self.current_opcode & 0x0F00) >> 8;
 
                 if (self.registers[x] != self.current_opcode & 0x00FF) {
                     self.increment_pc();
@@ -156,8 +164,8 @@ pub fn cycle(self: *Self) !void {
             }, // Skips next instruction if Vx != kk
 
             0x5 => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                var y = (self.current_opcode & 0x00F0) >> 4;
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                const y = (self.current_opcode & 0x00F0) >> 4;
 
                 if (self.registers[x] == self.registers[y]) {
                     self.increment_pc();
@@ -166,22 +174,23 @@ pub fn cycle(self: *Self) !void {
             }, // Skip next instruction if Vx = Vy
 
             0x6 => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                self.registers[x] = @truncate(u8, self.current_opcode & 0x00FF);
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                // self.registers[x] = @truncate(u8, self.current_opcode & 0x00FF);
+                self.registers[x] = @truncate(self.current_opcode & 0x00FF);
                 self.increment_pc();
             }, // Set Vx = kk
 
             0x7 => {
                 @setRuntimeSafety(false);
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                self.registers[x] += @truncate(u8, self.current_opcode & 0x00FF);
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                self.registers[x] += @truncate(self.current_opcode & 0x00FF);
                 self.increment_pc();
             }, // Set Vx = Vx + kk
 
             0x8 => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                var y = (self.current_opcode & 0x00F0) >> 4;
-                var m = (self.current_opcode & 0x000F);
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                const y = (self.current_opcode & 0x00F0) >> 4;
+                const m = (self.current_opcode & 0x000F);
 
                 switch (m) {
                     0 => {
@@ -201,7 +210,7 @@ pub fn cycle(self: *Self) !void {
                         sum += self.registers[y];
 
                         self.registers[0xF] = if (sum > 255) 1 else 0;
-                        self.registers[x] = @truncate(u8, sum & 0x00FF);
+                        self.registers[x] = @truncate(sum & 0x00FF);
                     },
                     5 => {
                         @setRuntimeSafety(false);
@@ -231,8 +240,8 @@ pub fn cycle(self: *Self) !void {
             }, // ALU instructions
 
             0x9 => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                var y = (self.current_opcode & 0x00F0) >> 4;
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                const y = (self.current_opcode & 0x00F0) >> 4;
 
                 if (self.registers[x] != self.registers[y]) {
                     self.increment_pc();
@@ -246,40 +255,39 @@ pub fn cycle(self: *Self) !void {
             }, // Set I
 
             0xB => {
-                self.program_counter = (self.current_opcode & 0x0FFF) + @intCast(u16, self.registers[0]);
+                self.program_counter = (self.current_opcode & 0x0FFF) + @as(u16, @intCast(self.registers[0]));
             }, // JMP to V0 + NNN
 
             0xC => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                var kk = self.current_opcode & 0x00FF;
-
-                self.registers[x] = @truncate(u8, @bitCast(u32, cstd.rand()) & kk);
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                const kk = self.current_opcode & 0x00FF;
+                self.registers[x] = self.random_byte() & @as(u8, @truncate(kk));
                 self.increment_pc();
             }, // Generate random number into X and AND with kk
 
             0xD => {
                 self.registers[0xF] = 0;
 
-                var registerX = self.registers[(self.current_opcode & 0x0F00) >> 8];
-                var registerY = self.registers[(self.current_opcode & 0x00F0) >> 4];
-                var height = self.current_opcode & 0x000F;
+                const registerX = self.registers[(self.current_opcode & 0x0F00) >> 8];
+                const registerY = self.registers[(self.current_opcode & 0x00F0) >> 4];
+                const height = self.current_opcode & 0x000F;
 
-                var y : usize = 0;
-                while(y < height) : (y += 1) {
-                    var spr = self.memory[self.index + y];
+                var y: usize = 0;
+                while (y < height) : (y += 1) {
+                    const spr = self.memory[self.index + y];
 
-                    var x : usize = 0;
-                    while(x < 8) : (x += 1) {
-                        const v : u8 = 0x80;
-                        if((spr & (v >> @intCast(u3, x))) != 0) {
-                            var tX = (registerX + x) % 64;
-                            var tY = (registerY + y) % 32;
+                    var x: usize = 0;
+                    while (x < 8) : (x += 1) {
+                        const v: u8 = 0x80;
+                        if ((spr & (v >> @intCast(x))) != 0) {
+                            const tX = (registerX + x) % 64;
+                            const tY = (registerY + y) % 32;
 
-                            var idx = tX + tY * 64;
+                            const idx = tX + tY * 64;
 
                             self.graphics[idx] ^= 1;
 
-                            if(self.graphics[idx] == 0) {
+                            if (self.graphics[idx] == 0) {
                                 self.registers[0x0F] = 1;
                             }
                         }
@@ -290,15 +298,15 @@ pub fn cycle(self: *Self) !void {
             }, // Draw
 
             0xE => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                var m = self.current_opcode & 0x00FF;
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                const m = self.current_opcode & 0x00FF;
 
-                if(m == 0x9E) {
-                    if(self.keys[self.registers[x]] == 1){
+                if (m == 0x9E) {
+                    if (self.keys[self.registers[x]] == 1) {
                         self.increment_pc();
                     }
-                } else if(m == 0xA1) {
-                    if(self.keys[self.registers[x]] != 1){
+                } else if (m == 0xA1) {
+                    if (self.keys[self.registers[x]] != 1) {
                         self.increment_pc();
                     }
                 }
@@ -306,30 +314,30 @@ pub fn cycle(self: *Self) !void {
             }, // Misc
 
             0xF => {
-                var x = (self.current_opcode & 0x0F00) >> 8;
-                var m = self.current_opcode & 0x00FF;
+                const x = (self.current_opcode & 0x0F00) >> 8;
+                const m = self.current_opcode & 0x00FF;
 
                 if (m == 0x07) {
                     self.registers[x] = self.delay_timer;
                 } else if (m == 0x0A) {
                     var key_pressed = false;
 
-                    var i : usize = 0;
-                    while(i < 16) : (i += 1) {
-                        if(self.keys[i] != 0) {
-                            self.registers[x] = @truncate(u8, i);
+                    var i: usize = 0;
+                    while (i < 16) : (i += 1) {
+                        if (self.keys[i] != 0) {
+                            self.registers[x] = @truncate(i);
                             key_pressed = true;
                         }
                     }
-                    
-                    if(!key_pressed)
+
+                    if (!key_pressed)
                         return;
                 } else if (m == 0x15) {
                     self.delay_timer = self.registers[x];
                 } else if (m == 0x18) {
                     self.sound_timer = self.registers[x];
                 } else if (m == 0x1E) {
-                    self.registers[0xF] = if(self.index + self.registers[x] > 0xFFF) 1 else 0;
+                    self.registers[0xF] = if (self.index + self.registers[x] > 0xFFF) 1 else 0;
                     self.index += self.registers[x];
                 } else if (m == 0x29) {
                     self.index = self.registers[x] * 0x5;
@@ -358,7 +366,7 @@ pub fn cycle(self: *Self) !void {
         }
     }
 
-    if (self.delay_timer > 0) 
+    if (self.delay_timer > 0)
         self.delay_timer -= 1;
 
     if (self.sound_timer > 0) {

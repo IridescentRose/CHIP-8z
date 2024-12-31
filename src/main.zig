@@ -1,5 +1,5 @@
 const std = @import("std");
-const sdl = @cImport(@cInclude("SDL.h"));
+const sdl = @cImport(@cInclude("SDL2/SDL.h"));
 const CPU = @import("cpu.zig");
 const process = std.process;
 
@@ -8,8 +8,8 @@ pub fn println(msg: []const u8) void {
 }
 
 var window: ?*sdl.SDL_Window = null;
-var renderer : ?*sdl.SDL_Renderer = null;
-var texture : ?*sdl.SDL_Texture = null;
+var renderer: ?*sdl.SDL_Renderer = null;
+var texture: ?*sdl.SDL_Texture = null;
 
 var cpu: *CPU = undefined;
 
@@ -52,15 +52,15 @@ pub fn init() void {
     // Okay let's setup some basic rendering
     renderer = sdl.SDL_CreateRenderer(window, -1, 0);
 
-    if(renderer == null) {
-        var err = sdl.SDL_GetError();
+    if (renderer == null) {
+        const err = sdl.SDL_GetError();
         std.debug.print("{s}\n", .{err});
 
         @panic("SDL Renderer Initialization Failed!");
     }
 
     texture = sdl.SDL_CreateTexture(renderer, sdl.SDL_PIXELFORMAT_RGBA8888, sdl.SDL_TEXTUREACCESS_STREAMING, 64, 32);
-    if(texture == null) {
+    if (texture == null) {
         @panic("SDL Texture Creation Failed!");
     }
 }
@@ -79,7 +79,7 @@ pub fn loadROM(filename: []const u8, system: *CPU) !void {
     defer inputFile.close();
 
     println("Loading ROM!");
-    var size = try inputFile.getEndPos();
+    const size = try inputFile.getEndPos();
     std.debug.print("ROM File Size {}\n", .{size});
     var reader = inputFile.reader();
 
@@ -94,14 +94,15 @@ pub fn loadROM(filename: []const u8, system: *CPU) !void {
 pub fn buildTexture(system: *CPU) void {
     var bytes: ?[*]u32 = null;
     var pitch: c_int = 0;
-    _ = sdl.SDL_LockTexture(texture, null, @ptrCast([*c]?*anyopaque, &bytes), &pitch);
+    // _ = sdl.SDL_LockTexture(texture, null, @ptrCast([*c]?*anyopaque, &bytes), &pitch);
+    _ = sdl.SDL_LockTexture(texture, null, @as([*c]?*anyopaque, @ptrCast(&bytes)), &pitch);
 
-    var y : usize = 0;
-    while(y < 32) : (y += 1) {
-    var x : usize = 0;
-    while(x < 64) : (x += 1) {
-        bytes.?[y * 64 + x] = if(system.graphics[y * 64 + x] == 1) 0xFFFFFFFF else 0x000000FF;
-    }
+    var y: usize = 0;
+    while (y < 32) : (y += 1) {
+        var x: usize = 0;
+        while (x < 64) : (x += 1) {
+            bytes.?[y * 64 + x] = if (system.graphics[y * 64 + x] == 1) 0xFFFFFFFF else 0x000000FF;
+        }
     }
     sdl.SDL_UnlockTexture(texture);
 }
@@ -115,7 +116,7 @@ pub fn main() !void {
     var arg_it = try process.argsWithAllocator(allocator);
     _ = arg_it.skip();
 
-    var filename = arg_it.next() orelse {
+    const filename = arg_it.next() orelse {
         println("No ROM file given!\n");
         return;
     };
@@ -138,21 +139,21 @@ pub fn main() !void {
             switch (e.type) {
                 sdl.SDL_QUIT => keep_open = false,
                 sdl.SDL_KEYDOWN => {
-                    if(e.key.keysym.scancode == sdl.SDL_SCANCODE_ESCAPE) {
+                    if (e.key.keysym.scancode == sdl.SDL_SCANCODE_ESCAPE) {
                         keep_open = false;
                     }
 
-                    var i : usize = 0;
-                    while(i < 16) : (i += 1) {
-                        if(e.key.keysym.scancode == keymap[i]) {
+                    var i: usize = 0;
+                    while (i < 16) : (i += 1) {
+                        if (e.key.keysym.scancode == keymap[i]) {
                             cpu.keys[i] = 1;
                         }
-                    } 
+                    }
                 },
                 sdl.SDL_KEYUP => {
-                    var i : usize = 0;
-                    while(i < 16) : (i += 1) {
-                        if(e.key.keysym.scancode == keymap[i]) {
+                    var i: usize = 0;
+                    while (i < 16) : (i += 1) {
+                        if (e.key.keysym.scancode == keymap[i]) {
                             cpu.keys[i] = 0;
                         }
                     }
@@ -164,12 +165,7 @@ pub fn main() !void {
 
         buildTexture(cpu);
 
-        var dest = sdl.SDL_Rect {
-            .x = 0,
-            .y = 0,
-            .w = 1024,
-            .h = 512
-        };
+        var dest = sdl.SDL_Rect{ .x = 0, .y = 0, .w = 1024, .h = 512 };
         _ = sdl.SDL_RenderCopy(renderer, texture, null, &dest);
         _ = sdl.SDL_RenderPresent(renderer);
 
